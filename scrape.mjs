@@ -1,5 +1,5 @@
 // Scrapes today's swimming, skating and open-gym info into dist/index.html.
-import { mkdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, writeFile } from 'node:fs/promises';
 
 const TZ = 'America/Whitehorse';
 const UA = 'Mozilla/5.0 (compatible; whitehorse-activities)';
@@ -147,6 +147,8 @@ function render({ today, now, calendars, gym, errors }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What's On Today</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root {
     color-scheme: light dark;
@@ -231,5 +233,6 @@ const errors = [...calendars, { title: 'Gymnastics', result: gym }]
 for (const e of errors) console.error(e);
 
 await mkdir('dist', { recursive: true });
+await cp('public', 'dist', { recursive: true });
 await writeFile('dist/index.html', render({ today, now, calendars, gym, errors }));
 console.log(`Wrote dist/index.html for ${today} (${errors.length} error${errors.length === 1 ? '' : 's'})`);

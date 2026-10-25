@@ -8,6 +8,9 @@ const PM = 'https://whitehorse.perfectmind.com/24547/Clients';
 const WIDGET_ID = '011c1070-84e5-4b2f-8e88-65a3bdd0397e';
 const GYM_URL = 'https://www.polarettes.org/open-gym';
 
+// Sessions whose names match get blue text.
+const HIGHLIGHT = /motoring munchkins/i;
+
 const CALENDARS = [
   { title: 'Swimming', calendarId: '609c5691-1bc3-d63a-6104-ce595ca31317' },
   { title: 'Ice Skating', calendarId: 'ecfea22a-afb2-4be1-90a5-2148b6cad1f4' },
@@ -125,7 +128,7 @@ function renderClasses(result) {
     const time = timed ? `${esc(i.startText)}<span>to ${esc(i.endText)}</span>` : 'All day';
     return `<li${timed ? ` data-start="${i.start}" data-end="${i.end}"` : ''}>
         <div class="time">${time}</div>
-        <div><div class="name">${esc(i.name)}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>
+        <div><div class="name${HIGHLIGHT.test(i.name) ? ' highlight' : ''}">${esc(i.name)}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>
       </li>`;
   });
   return `<ul class="sessions">${rows.join('')}</ul>`;
@@ -162,12 +165,12 @@ function render({ today, now, calendars, gym, errors }) {
   :root {
     color-scheme: light dark;
     --bg: #f7f7f4; --fg: #1c1c1a; --muted: #6b6b65; --line: #e1e1dc;
-    --now-bg: #e3f3e7; --now-fg: #1d6633; --warn-bg: #fff4d6; --warn-fg: #6b4e00; --err: #b42318;
+    --now-bg: #e3f3e7; --now-fg: #1d6633; --warn-bg: #fff4d6; --warn-fg: #6b4e00; --err: #b42318; --highlight: #1d4ed8;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #151514; --fg: #ececea; --muted: #9b9b95; --line: #2d2d2b;
-      --now-bg: #16301f; --now-fg: #8fd6a4; --warn-bg: #3a2f10; --warn-fg: #f3d27a; --err: #ff8a80;
+      --now-bg: #16301f; --now-fg: #8fd6a4; --warn-bg: #3a2f10; --warn-fg: #f3d27a; --err: #ff8a80; --highlight: #8ab4ff;
     }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -183,6 +186,7 @@ function render({ today, now, calendars, gym, errors }) {
   .time { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .time span { display: block; font-weight: 400; font-size: .85rem; color: var(--muted); }
   .name { font-weight: 500; }
+  .highlight { color: var(--highlight); }
   .meta, .empty { color: var(--muted); font-size: .875rem; }
   .past { opacity: .4; }
   .now { background: var(--now-bg); }

@@ -1,6 +1,6 @@
 # What's On Today
 
-One page showing today's swimming and skating sessions from the City of Whitehorse booking site, plus the Polarettes open-gym drop-in schedule.
+One page showing today's swimming, skating, recreation drop-ins and community events from the City of Whitehorse booking site, plus the Polarettes open-gym drop-in schedule.
 
 `scrape.mjs` fetches the sources and writes a static `dist/index.html`. A GitHub Action runs it every hour and publishes the result to GitHub Pages. You can't scrape from the browser because PerfectMind doesn't send CORS headers.
 

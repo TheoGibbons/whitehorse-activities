@@ -1,4 +1,4 @@
-// Scrapes today's swimming, skating and open-gym info into dist/index.html.
+// Scrapes today's swimming, skating, recreation, community events and open-gym info into dist/index.html.
 import { cp, mkdir, writeFile } from 'node:fs/promises';
 
 const TZ = 'America/Whitehorse';
@@ -11,6 +11,8 @@ const GYM_URL = 'https://www.polarettes.org/open-gym';
 const CALENDARS = [
   { title: 'Swimming', calendarId: '609c5691-1bc3-d63a-6104-ce595ca31317' },
   { title: 'Ice Skating', calendarId: 'ecfea22a-afb2-4be1-90a5-2148b6cad1f4' },
+  { title: 'Recreation', calendarId: '420604eb-ea82-4980-8b4a-b18a513c0e5d' },
+  { title: 'Community Events', calendarId: '8acc8d53-da75-4c05-b17e-ec156133bea5' },
 ];
 
 const bookingPageUrl = calendarId =>
@@ -51,7 +53,8 @@ async function fetchClasses(calendarId, date) {
       page: '0',
       'values[0][Name]': 'Date Range',
       'values[0][Value]': `${date}T00:00:00.000Z`,
-      'values[0][Value2]': `${addDays(date, 1)}T00:00:00.000Z`,
+      // Multi-day events only come back once the range reaches their last day, so look a week ahead.
+      'values[0][Value2]': `${addDays(date, 7)}T00:00:00.000Z`,
       'values[0][ValueKind]': '6',
       __RequestVerificationToken: token,
     }),
@@ -60,16 +63,19 @@ async function fetchClasses(calendarId, date) {
   const { classes } = await res.json().catch(() => ({}));
   if (!Array.isArray(classes)) throw new Error('ClassesV2 response had no classes list');
 
-  // The API returns a couple of days at a time, so keep only today's.
+  // The API returns several days at a time, so keep only today's. A multi-day all-day event
+  // (e.g. a three-day contest) is listed once under its first day, so keep it while it runs.
   const ymd = date.replaceAll('-', '');
+  const lastDay = c => addDays(c.OccurrenceDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'), Math.floor((c.DurationInMinutes - 1) / 1440));
   return classes
-    .filter(c => c.OccurrenceDate === ymd)
+    .filter(c => c.OccurrenceDate === ymd || (c.AllDayEvent && c.OccurrenceDate < ymd && lastDay(c) >= date))
     .map(c => {
       const start = toMinutes(c.FormattedStartTime);
       let end = toMinutes(c.FormattedEndTime);
       if (start != null && end != null && end <= start) end = 24 * 60;
       return {
-        name: c.EventName,
+        // Some names carry a "(1/3)"-style suffix, e.g. "Motoring Munchkins (1/3)".
+        name: c.EventName?.replace(/\s*\(\d+\/\d+\)$/, ''),
         startText: c.FormattedStartTime?.replace(/^0/, ''),
         endText: c.FormattedEndTime?.replace(/^0/, ''),
         start,
@@ -115,8 +121,8 @@ function renderClasses(result) {
   const showFacility = new Set(items.map(i => i.facility)).size > 1;
   const rows = items.map(i => {
     const meta = [showFacility && i.facility, i.ages && `Ages ${i.ages}`, i.spots].filter(Boolean).join(' · ');
-    const timed = i.start != null && i.end != null;
-    const time = i.allDay || !timed ? 'All day' : `${esc(i.startText)}<span>to ${esc(i.endText)}</span>`;
+    const timed = !i.allDay && i.start != null && i.end != null;
+    const time = timed ? `${esc(i.startText)}<span>to ${esc(i.endText)}</span>` : 'All day';
     return `<li${timed ? ` data-start="${i.start}" data-end="${i.end}"` : ''}>
         <div class="time">${time}</div>
         <div><div class="name">${esc(i.name)}</div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}</div>
@@ -140,6 +146,9 @@ function render({ today, now, calendars, gym, errors }) {
     <h2>${esc(title)} <a class="src" href="${esc(href)}">source</a></h2>
     ${body}
   </section>`;
+  const sections = calendars.map(c => section(c.title, bookingPageUrl(c.calendarId), renderClasses(c.result)));
+  // Gymnastics goes right after Swimming and Ice Skating, ahead of the broader listings.
+  sections.splice(2, 0, section('Gymnastics', GYM_URL, renderGym(gym)));
 
   return `<!doctype html>
 <html lang="en">
@@ -190,8 +199,7 @@ function render({ today, now, calendars, gym, errors }) {
     <p class="sub">${esc(dateText)} · updated ${esc(updatedText)}</p>
     <p class="stale" id="stale" hidden>This page hasn't been refreshed since ${esc(dateText)}, so the times below may not be today's.</p>
   </header>
-  ${calendars.map(c => section(c.title, bookingPageUrl(c.calendarId), renderClasses(c.result))).join('')}
-  ${section('Gymnastics', GYM_URL, renderGym(gym))}
+  ${sections.join('')}
   <section>
     <h2>Errors</h2>
     ${errors.length ? `<ul class="errors">${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="empty">None.</p>'}
